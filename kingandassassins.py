@@ -105,6 +105,7 @@ class KingAndAssassinsState(game.GameState):
         nx, ny = self._getcoord((x, y, dir))
 
     def update(self, moves, player):
+        print(self._state)
         visible = self._state['visible']
         hidden = self._state['hidden']
         people = visible['people']
@@ -304,12 +305,15 @@ class KingAndAssassinsClient(game.GameClient):
         #   ('reveal', x, y): reveals villager at position (x,y) as an assassin
         state = state._state['visible']
         if state['card'] is None:
-            return json.dumps({'assassins': ['monk', 'hooker', 'fishwoman']}, separators=(',', ':'))
+            poplist= list(POPULATION)
+            self._KRIM= [poplist[0], poplist[1], poplist[2]]
+            print(self._KRIM, 'have been chosen')
+            return json.dumps({'assassins': self._KRIM}, separators=(',', ':'))
         else:
             if self._playernb == 0:
                 for i in range(10):
                     for j in range(10):
-                        if state['people'][i][j] in {'monk', 'hooker', 'fishwoman'}:
+                        if state['people'][i][j] in set(self._KRIM):
                             return json.dumps({'actions': [('reveal', i, j)]}, separators=(',', ':'))
                 return json.dumps({'actions': []}, separators=(',', ':'))
             else:
