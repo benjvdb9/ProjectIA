@@ -446,7 +446,6 @@ class KingAndAssassinsClient(game.GameClient):
     def _guessassassins(self, state):
         AP= state['card'][3]
         poplist= []
-        truelm = []
         movelist=[]
         for i in range(10):
             for j in range(10):
@@ -455,11 +454,13 @@ class KingAndAssassinsClient(game.GameClient):
         rd= random.randint(0, len(poplist)-1)
         x, y= poplist[rd][0], poplist[rd][1]
         p= ['N', 'E', 'S', 'W']
-        a, b, c, d= self._verdir(self, poplist[rd])
+        a, b, c, d= self._verdir(state, (x, y))
+        print(x, y)
         print(a, b, c, d)
         while AP != 0: 
             if a or b or c or d:
                 i=0
+                truelm= []
                 for elem in [a, b, c, d]:
                     if elem:
                         truelm += [p[i]]
@@ -470,7 +471,7 @@ class KingAndAssassinsClient(game.GameClient):
                 nx, ny= KingAndAssassinsState._getcoord(self, (x, y, choice))
                 AP-=1
                 print(x, y, choice)
-                movelist += ['move', x, y, choice]
+                movelist += [('move', x, y, choice)]
                 print('commoner went from ({},{}) to ({},{})'.format(x,y,nx,ny))
             else:
                 rd= random.randint(0, len(poplist)-1)
