@@ -117,6 +117,7 @@ class KingAndAssassinsState(game.GameState):
                 x, y, d = int(move[1]), int(move[2]), move[3]
                 p = people[x][y]
                 if p is None:
+                    print(people)
                     raise game.InvalidMoveException('{}: there is no one to move'.format(move))
                 nx, ny = self._getcoord((x, y, d))
                 new = people[nx][ny]
@@ -289,6 +290,7 @@ class KingAndAssassinsClient(game.GameClient):
     def __init__(self, name, server, verbose=False):
         super().__init__(server, KingAndAssassinsState, verbose=verbose)
         self.__name = name
+        self.laststate= []
 
     def _handle(self, message):
         pass
@@ -315,7 +317,7 @@ class KingAndAssassinsClient(game.GameClient):
                     for j in range(10):
                         if state['people'][i][j] in set(self._KRIM):
                             return json.dumps({'actions': [('reveal', i, j)]}, separators=(',', ':'))
-                return json.dumps({'actions': []}, separators=(',', ':'))
+                return json.dumps({'actions': self._guessassassins(state)}, separators=(',', ':'))
             else:
                 return json.dumps({'actions': self._guessking(state)}, separators=(',', ':'))
 
@@ -349,7 +351,6 @@ class KingAndAssassinsClient(game.GameClient):
         return verN, verE, verS, verW
 
     def _checkground(self, coord):
-        print('Coordinates:', coord)
         if BOARD[coord[0]][coord[1]]== 'G':
             return True
         else:
@@ -362,7 +363,7 @@ class KingAndAssassinsClient(game.GameClient):
         card= state['card']
         movelist= []
         king, knights= self._getP1coords(state)
-        target= state['castle'][1]
+        target= state['castle'][0]
         while running:
             if card[0] != 0:
                 N, E, S, W = self._verdir(state, king)
@@ -374,24 +375,29 @@ class KingAndAssassinsClient(game.GameClient):
                             nx, ny= KingAndAssassinsState._getcoord(self, (king[0], king[1], dirs[i+4]))
                             Db= hypot(target[0]-king[0], target[1]-king[1])
                             Da= hypot(target[0]-nx, target[1]-ny)
-                            if Da < Db and self._checkground((nx, ny)):
+                            if Da < Db and self._checkground((nx, ny)) and card[0]!=0:
                                 card[0]-=1
-                                print('KingMOVE')
                                 movelist += [('move', king[0], king[1], dirs[i+4])]
                                 state['people'][nx][ny]= 'king'
                                 state['people'][king[0]][king[1]]= None
-                                print('King from', king, 'to', (nx, ny), card[0], 'moves left')
+                                print('1st: King from', king, 'to', (nx, ny), card[0], 'moves left')
                                 sleep(10)
                         i+=1
                     if card[1]== 0:
                         i=0
                         for elm in [N, E, S, W]:
                             nx, ny= KingAndAssassinsState._getcoord(self, (king[0], king[1], dirs[i+4]))
-                            if self._checkground((nx, ny)):
+                            try:
+                                groundval= self._checkground((nx, ny))
+                            except:
+                                groundval= False
+                            if groundval and card[0]!=0:
                                 card[0]-=1
-                                print('KingMOVE')
                                 movelist += [('move', king[0], king[1], dirs[i+4])]
-                                print('King from', king, 'to', (nx, ny), card[0], 'moves left')
+                                state['people'][nx][ny]= 'king'
+                                state['people'][king[0]][king[1]]= None
+                                king, knights= self._getP1coords(state)
+                                print('2nd: King from', king, 'to', (nx, ny), card[0], 'moves left')
                                 sleep(10)
                             i+=1
                 if j>25:
@@ -406,30 +412,26 @@ class KingAndAssassinsClient(game.GameClient):
                     o=0
                 p= ['N', 'E', 'S', 'W']
                 a, b, c, d = self._verdir(state, knights[o])
-                #print('YVCS', a, b, c, d)
                 i=0
                 dirg= []
                 for elm in [a, b, c, d]:
                     ver= False
-                    #print('Vericications:', elm)
                     if elm:
                         ver= True
                         dirg+= [p[i]]
-                        #print('dirg:', dirg)
                         dirc= random.choice(dirg)
-                        #print('dirc:', dirc)
                     i+=1
                 if ver:
                     card[1]-=1
-                    #print('KnightMOVE')
+                    print(dirc)
                     movelist += [('move', knights[o][0], knights[o][1], dirc)]
-                    state['people'][knights[o][0]][knights[o][1]]= None
                     nx, ny= KingAndAssassinsState._getcoord(self, (knights[o][0], knights[o][1], dirc))
-                    #print(knights[o][0], knights[o][1], dirc, nx, ny)
+                    print(knights[o][0], knights[o][1], dirc)
                     state['people'][nx][ny]= 'knight'
+                    state['people'][knights[o][0]][knights[o][1]]= None
+                    king, knights= self._getP1coords(state)
                     dirg = []
                     print('Knight from', knights[o], 'to', (nx, ny), card[1], 'moves left')
-                    sleep(10)
             if card[0]==0 and card[1]==0:
                 running= False
                 print(movelist)
