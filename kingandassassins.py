@@ -8,6 +8,7 @@ import json
 import random
 import socket
 import sys
+from math import hypot
 
 from lib import game
 
@@ -105,26 +106,28 @@ class KingAndAssassinsState(game.GameState):
         nx, ny = self._getcoord((x, y, dir))
 
     def update(self, moves, player):
-        print(self._state)
         visible = self._state['visible']
         hidden = self._state['hidden']
         people = visible['people']
         for move in moves:
-            print(move)
+            print('currentmove', move)
             # ('move', x, y, dir): moves person at position (x,y) of one cell in direction dir
             if move[0] == 'move':
                 x, y, d = int(move[1]), int(move[2]), move[3]
                 p = people[x][y]
+                print(x, y, d, p)
                 if p is None:
                     raise game.InvalidMoveException('{}: there is no one to move'.format(move))
                 nx, ny = self._getcoord((x, y, d))
+                print(nx, ny)
                 new = people[nx][ny]
+                print(type(new))
                 # King, assassins, villagers can only move on a free cell
                 if p != 'knight' and new is not None:
                     raise game.InvalidMoveException('{}: cannot move on a cell that is not free'.format(move))
                 if p == 'king' and BOARD[nx][ny] == 'R':
                     raise game.InvalidMoveException('{}: the king cannot move on a roof'.format(move))
-                if p in {'assassin'} + POPULATION and player != 0:
+                if p in {'assassin'} and p in POPULATION and player != 0:
                     raise game.InvalidMoveException('{}: villagers and assassins can only be moved by player 0'.format(move))
                 if p in {'king', 'knight'} and player != 1:
                     raise game.InvalidMoveException('{}: the king and knights can only be moved by player 1'.format(move))
@@ -307,7 +310,6 @@ class KingAndAssassinsClient(game.GameClient):
         if state['card'] is None:
             poplist= list(POPULATION)
             self._KRIM= [poplist[0], poplist[1], poplist[2]]
-            print(self._KRIM, 'have been chosen')
             return json.dumps({'assassins': self._KRIM}, separators=(',', ':'))
         else:
             if self._playernb == 0:
@@ -317,8 +319,74 @@ class KingAndAssassinsClient(game.GameClient):
                             return json.dumps({'actions': [('reveal', i, j)]}, separators=(',', ':'))
                 return json.dumps({'actions': []}, separators=(',', ':'))
             else:
-                return json.dumps({'actions': []}, separators=(',', ':'))
+                return json.dumps({'actions': self._guessking(state)}, separators=(',', ':'))
 
+    def _getP1coords(self, state):
+        knightcoords= []
+        for i in range(10):
+            for j in range(10):
+                if state['people'][i][j]=='king':
+                    king= (i, j)
+                elif state['people'][i][j]== 'knight':
+                    knightcoords += [(i, j)]
+        return (king, knightcoords)
+
+    def _verdir(self, state, coord):
+        print(coord)
+        try:
+            verN= None==state['people'][coord[0]-1][coord[1]]
+        except:
+            verN= False
+        try:
+            verE= None==state['people'][coord[0]][coord[1]+1]
+        except:
+            verE= False
+        try:
+            verS= None==state['people'][coord[0]+1][coord[1]]
+        except:
+            verS= False
+        try:
+            verW= None==state['people'][coord[0]][coord[1]-1]
+        except:
+            verW= False
+        return verN, verE, verS, verW
+
+                
+    def _guessking(self, state):
+        running= True
+        card= state['card']
+        movelist= []
+        king, knights= self._getP1coords(state)
+        print('ARHF', knights)
+        target= state['castle'][1]
+        while running:
+            if card[0] != 0:
+                N, E, S, W = self._verdir(state, king)
+                dirs= [N, E, S, W, 'N', 'E', 'S', 'W']
+                if N or E or S or W:
+                    i=0
+                    while i < 4:
+                        if dirs[i]:
+                            nx, ny= KingAndAssassinsState._getcoord(king[0], king[1], dirs[i+4])
+                            Db= hypot(target[0]-king[0], target[1]-king[1])
+                            Da= hypot(target[0]-nx, target[1]-ny)
+                            if Da < Db:
+                                card[0]-=1
+                                return ('move', king, dirs[i+4])
+                        i+=1
+            if card[1] != 0:
+                l= len(knights)
+                o= random.randint(0, l-1)
+                p= ['N', 'E', 'S', 'W']
+                a, b, c, d = self._verdir(state, knights[o])
+                for elm in [a, b, c, d]:
+                    i=0
+                    if elm:
+                        dirs= p[i]
+                return ('move', knights[o], dirs)
+
+    def _guessassassins(self, state):
+        pass
 
 if __name__ == '__main__':
     # Create the top-level parser
