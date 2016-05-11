@@ -381,7 +381,7 @@ class KingAndAssassinsClient(game.GameClient):
                                 state['people'][nx][ny]= 'king'
                                 state['people'][king[0]][king[1]]= None
                                 print('1st: King from', king, 'to', (nx, ny), card[0], 'moves left')
-                                sleep(10)
+                                #sleep(1)
                         i+=1
                     if card[1]== 0:
                         i=0
@@ -398,12 +398,18 @@ class KingAndAssassinsClient(game.GameClient):
                                 state['people'][king[0]][king[1]]= None
                                 king, knights= self._getP1coords(state)
                                 print('2nd: King from', king, 'to', (nx, ny), card[0], 'moves left')
-                                sleep(10)
+                                #sleep(1)
+                            else:
+                                if j>25:
+                                    card[0]-=1
                             i+=1
                 if j>25:
                     print('J > 25', movelist)
                     running= False
-                    return movelist
+                    if len(movelist)==0:
+                        return []
+                    else:
+                        return movelist
             if card[1] != 0:
                 l= len(knights)
                 try:
@@ -423,23 +429,55 @@ class KingAndAssassinsClient(game.GameClient):
                     i+=1
                 if ver:
                     card[1]-=1
-                    print(dirc)
                     movelist += [('move', knights[o][0], knights[o][1], dirc)]
-                    nx, ny= KingAndAssassinsState._getcoord(self, (knights[o][0], knights[o][1], dirc))
+                    nxx, nyy= KingAndAssassinsState._getcoord(self, (knights[o][0], knights[o][1], dirc))
                     print(knights[o][0], knights[o][1], dirc)
-                    state['people'][nx][ny]= 'knight'
+                    state['people'][nxx][nyy]= 'knight'
                     state['people'][knights[o][0]][knights[o][1]]= None
                     king, knights= self._getP1coords(state)
                     dirg = []
-                    print('Knight from', knights[o], 'to', (nx, ny), card[1], 'moves left')
+                    #sleep(1)
+                    print('Knight from', knights[o], 'to', (nxx, nyy), card[1], 'moves left')
             if card[0]==0 and card[1]==0:
                 running= False
-                print(movelist)
                 return movelist
             j+=1
 
     def _guessassassins(self, state):
-        pass
+        AP= state['card'][3]
+        poplist= []
+        truelm = []
+        movelist=[]
+        for i in range(10):
+            for j in range(10):
+                if state['people'][i][j] in POPULATION:
+                    poplist += [(i, j)]
+        rd= random.randint(0, len(poplist)-1)
+        x, y= poplist[rd][0], poplist[rd][1]
+        p= ['N', 'E', 'S', 'W']
+        a, b, c, d= self._verdir(self, poplist[rd])
+        print(a, b, c, d)
+        while AP != 0: 
+            if a or b or c or d:
+                i=0
+                for elem in [a, b, c, d]:
+                    if elem:
+                        truelm += [p[i]]
+                        print('truelm', truelm)
+                    i+=1
+                choice = random.choice(truelm)
+                print('choice', choice)
+                nx, ny= KingAndAssassinsState._getcoord(self, (x, y, choice))
+                AP-=1
+                print(x, y, choice)
+                movelist += ['move', x, y, choice]
+                print('commoner went from ({},{}) to ({},{})'.format(x,y,nx,ny))
+            else:
+                rd= random.randint(0, len(poplist)-1)
+                x, y= poplist[rd][0], poplist[rd][1]
+                p= ['N', 'E', 'S', 'W']
+                a, b, c, d= self._verdir(self, poplist[rd])
+        return movelist
 
 if __name__ == '__main__':
     # Create the top-level parser
