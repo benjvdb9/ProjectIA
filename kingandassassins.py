@@ -111,13 +111,11 @@ class KingAndAssassinsState(game.GameState):
         hidden = self._state['hidden']
         people = visible['people']
         for move in moves:
-            print('currentmove', move)
             # ('move', x, y, dir): moves person at position (x,y) of one cell in direction dir
             if move[0] == 'move':
                 x, y, d = int(move[1]), int(move[2]), move[3]
                 p = people[x][y]
                 if p is None:
-                    print(people)
                     raise game.InvalidMoveException('{}: there is no one to move'.format(move))
                 nx, ny = self._getcoord((x, y, d))
                 new = people[nx][ny]
@@ -333,27 +331,35 @@ class KingAndAssassinsClient(game.GameClient):
 
     def _verdir(self, state, coord):
         try:
+            #print('NORD', state['people'][coord[0]-1][coord[1]])
             verN= None==state['people'][coord[0]-1][coord[1]]
         except:
             verN= False
         try:
+            #print('EST', state['people'][coord[0]][coord[1]+1])
             verE= None==state['people'][coord[0]][coord[1]+1]
         except:
             verE= False
         try:
+            #print('SUD', state['people'][coord[0]+1][coord[1]])
             verS= None==state['people'][coord[0]+1][coord[1]]
         except:
             verS= False
         try:
+            #print('OUEST', state['people'][coord[0]][coord[1]-1])
             verW= None==state['people'][coord[0]][coord[1]-1]
         except:
             verW= False
+        #print(verN, verE, verS, verW)
         return verN, verE, verS, verW
 
     def _checkground(self, coord):
-        if BOARD[coord[0]][coord[1]]== 'G':
-            return True
-        else:
+        try:
+            if BOARD[coord[0]][coord[1]]== 'G':
+                return True
+            else:
+                return False
+        except:
             return False
 
                 
@@ -364,6 +370,7 @@ class KingAndAssassinsClient(game.GameClient):
         movelist= []
         king, knights= self._getP1coords(state)
         target= state['castle'][0]
+        posdir= []
         while running:
             if card[0] != 0:
                 N, E, S, W = self._verdir(state, king)
@@ -375,34 +382,41 @@ class KingAndAssassinsClient(game.GameClient):
                             nx, ny= KingAndAssassinsState._getcoord(self, (king[0], king[1], dirs[i+4]))
                             Db= hypot(target[0]-king[0], target[1]-king[1])
                             Da= hypot(target[0]-nx, target[1]-ny)
-                            if Da < Db and self._checkground((nx, ny)) and card[0]!=0:
+                            if Da < Db and self._checkground((nx, ny)) and card[0]!=0 and state['people'][nx][ny]==None:
                                 card[0]-=1
                                 movelist += [('move', king[0], king[1], dirs[i+4])]
                                 state['people'][nx][ny]= 'king'
                                 state['people'][king[0]][king[1]]= None
                                 print('1st: King from', king, 'to', (nx, ny), card[0], 'moves left')
-                                #sleep(1)
+                                king= (nx, ny)
+                                N, E, S, W= self._verdir(state, king)
                         i+=1
                     if card[1]== 0:
                         i=0
-                        for elm in [N, E, S, W]:
-                            nx, ny= KingAndAssassinsState._getcoord(self, (king[0], king[1], dirs[i+4]))
-                            try:
-                                groundval= self._checkground((nx, ny))
-                            except:
-                                groundval= False
-                            if groundval and card[0]!=0:
-                                card[0]-=1
-                                movelist += [('move', king[0], king[1], dirs[i+4])]
-                                state['people'][nx][ny]= 'king'
-                                state['people'][king[0]][king[1]]= None
-                                king, knights= self._getP1coords(state)
-                                print('2nd: King from', king, 'to', (nx, ny), card[0], 'moves left')
-                                #sleep(1)
-                            else:
-                                if j>25:
-                                    card[0]-=1
+                        while i < 4:
+                            if dirs[i]:
+                                posdir += [dirs[i+4]]
                             i+=1
+                        try:
+                            direction= random.choice(posdir)
+                        except:
+                            running= False
+                        nx, ny= KingAndAssassinsState._getcoord(self, (king[0], king[1], direction))
+                        try:
+                            groundval= self._checkground((nx, ny))
+                        except:
+                            groundval= False
+                        if groundval and card[0]!=0:
+                            card[0]-=1
+                            movelist += [('move', king[0], king[1], direction)]
+                            state['people'][nx][ny]= 'king'
+                            state['people'][king[0]][king[1]]= None
+                            print('2nd: King from', king, 'to', (nx, ny), card[0], 'moves left')
+                            king, knights= self._getP1coords(state)
+                        else:
+                            if j>25:
+                                card[0]-=1
+
                 if j>25:
                     print('J > 25', movelist)
                     running= False
@@ -420,62 +434,68 @@ class KingAndAssassinsClient(game.GameClient):
                 a, b, c, d = self._verdir(state, knights[o])
                 i=0
                 dirg= []
+                ver= False
                 for elm in [a, b, c, d]:
-                    ver= False
                     if elm:
                         ver= True
                         dirg+= [p[i]]
-                        dirc= random.choice(dirg)
                     i+=1
                 if ver:
+                    dirc= random.choice(dirg)
+                    nxx, nyy= KingAndAssassinsState._getcoord(self, (knights[o][0], knights[o][1], dirc))
+                if ver and self._checkground((nxx, nyy)):
                     card[1]-=1
                     movelist += [('move', knights[o][0], knights[o][1], dirc)]
-                    nxx, nyy= KingAndAssassinsState._getcoord(self, (knights[o][0], knights[o][1], dirc))
                     print(knights[o][0], knights[o][1], dirc)
+                    print('Knight from', knights[o], 'to', (nxx, nyy), card[1], 'moves left')
                     state['people'][nxx][nyy]= 'knight'
                     state['people'][knights[o][0]][knights[o][1]]= None
                     king, knights= self._getP1coords(state)
+                    dirc = None
                     dirg = []
-                    #sleep(1)
-                    print('Knight from', knights[o], 'to', (nxx, nyy), card[1], 'moves left')
             if card[0]==0 and card[1]==0:
                 running= False
                 return movelist
             j+=1
 
-    def _guessassassins(self, state):
-        AP= state['card'][3]
+    def _GetPopList(self, state):
         poplist= []
-        movelist=[]
         for i in range(10):
             for j in range(10):
                 if state['people'][i][j] in POPULATION:
                     poplist += [(i, j)]
-        rd= random.randint(0, len(poplist)-1)
-        x, y= poplist[rd][0], poplist[rd][1]
+        return poplist
+
+    def _guessassassins(self, state):
+        AP= state['card'][3]
+        poplist= []
+        movelist=[]
+        poplist= self._GetPopList(state)
         p= ['N', 'E', 'S', 'W']
-        a, b, c, d= self._verdir(state, (x, y))
-        print(x, y)
-        print(a, b, c, d)
-        while AP != 0: 
+        while AP != 0:
+            rd= random.randint(0, len(poplist)-1)
+            x, y= poplist[rd]
+            a, b, c, d= self._verdir(state, (x, y))
             if a or b or c or d:
                 i=0
                 truelm= []
                 for elem in [a, b, c, d]:
                     if elem:
                         truelm += [p[i]]
-                        print('truelm', truelm)
                     i+=1
                 choice = random.choice(truelm)
-                print('choice', choice)
                 nx, ny= KingAndAssassinsState._getcoord(self, (x, y, choice))
                 AP-=1
                 print(x, y, choice)
                 movelist += [('move', x, y, choice)]
+                sleep(5)
                 print('commoner went from ({},{}) to ({},{})'.format(x,y,nx,ny))
+                state['people'][nx][ny]= state['people'][x][y]
+                state['people'][x][y]= None
+                poplist= self._GetPopList(state)
             else:
                 rd= random.randint(0, len(poplist)-1)
-                x, y= poplist[rd][0], poplist[rd][1]
+                x, y= poplist[rd]
                 p= ['N', 'E', 'S', 'W']
                 a, b, c, d= self._verdir(self, poplist[rd])
         return movelist
